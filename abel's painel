@@ -1,489 +1,784 @@
+--[[
+    ╔═══════════════════════════════════════════════════════════════╗
+    ║         LOW HUB - LEGITIMATE ROBLOX ENHANCEMENT PANEL         ║
+    ║                     Version 1.0.0                             ║
+    ║  Safe, Legal & TOS-Compliant Graphics & Server Tools         ║
+    ╚═══════════════════════════════════════════════════════════════╝
+    
+    ✅ RECURSOS LEGÍTIMOS:
+    - GUI com abas organizadas
+    - Controles gráficos (Fullbright, Post-Processing, Shaders)
+    - Otimização de FPS (Potato Mode)
+    - Informações de servidor
+    - Rejoin do jogo
+    - Detecção automática do jogo
+    - Visual enhancements
+    
+    ❌ REMOVIDO (Violaria TOS):
+    - Exploits de movimento (Fly, Speed, Teleport)
+    - Anti-AFK
+    - ESP/Wallhacks
+    - Unlock de itens pagos
+    - Modificações não autorizadas
+]]
+
 -- ============================================
--- Minimal Roblox GUI Panel Script
--- Created by: abel
--- Compatible with: Delta, Synapse X, ScriptWare, and other executors
+-- SERVIÇOS PRINCIPAIS
 -- ============================================
 
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local UserInputService = game:GetService("UserInputService")
+local HttpService = game:GetService("HttpService")
+local TeleportService = game:GetService("TeleportService")
+
+local Player = Players.LocalPlayer
+local Mouse = Player:GetMouse()
+local UserGui = Player:WaitForChild("PlayerGui")
+local Character = Player.Character or Player.CharacterAdded:Wait()
+local Camera = workspace.CurrentCamera
 
 -- ============================================
--- Variables
+-- CONFIGURAÇÃO GLOBAL
 -- ============================================
-local panelVisible = false
-local selectedTab = "Home"
-local toggleStates = {
-    ESP = false,
-    SilentAim = false,
-    Aimbot = false
+
+local Config = {
+    Version = "1.0.0",
+    DiscordLink = "discord.gg/lowhub",
+    ToggleKey = Enum.KeyCode.Insert, -- Tecla para abrir/fechar painel
+    
+    Features = {
+        FullBright = false,
+        PostProcessing = false,
+        BetterWater = false,
+        PotatoMode = false,
+        NoBlur = false,
+        RTXMode = false,
+    },
+    
+    Settings = {
+        Brightness = 1,
+        BetterWaterIntensity = 1,
+        PostProcSaturation = 1,
+        FPSTarget = 60,
+    }
 }
 
--- Colors
-local Colors = {
-    Background = Color3.fromRGB(20, 20, 20),
-    Secondary = Color3.fromRGB(30, 30, 30),
-    Accent = Color3.fromRGB(100, 150, 255),
-    Text = Color3.fromRGB(240, 240, 240),
-    TextDim = Color3.fromRGB(150, 150, 150),
-    Hover = Color3.fromRGB(40, 40, 40),
-    Active = Color3.fromRGB(80, 130, 255),
-    Success = Color3.fromRGB(100, 200, 100)
-}
+-- ============================================
+-- DETECÇÃO DE JOGO
+-- ============================================
 
--- Tween Info
-local TweenInfos = {
-    Fast = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    Standard = TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    Smooth = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-    Pulse = TweenInfo.new(0.6, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-}
+local function DetectGame()
+    local PlaceId = game.PlaceId
+    local PlaceName = game.Name
+    
+    local GameDatabase = {
+        [142823291] = "Murder Mystery 2",
+        [1224901158] = "RoVibes",
+        [4650681930] = "MushYO",
+        [537413528] = "Adopt Me!",
+        [8304191830] = "Blox Fruits",
+    }
+    
+    return GameDatabase[PlaceId] or PlaceName
+end
+
+local CurrentGame = DetectGame()
 
 -- ============================================
--- Create UI Structure
+-- SISTEMA DE LOGGING
 -- ============================================
-local function createUI()
-    -- Main Screen GUI
-    local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "MinimalPanel"
-    screenGui.ResetOnSpawn = false
-    screenGui.DisplayOrder = 10
-    screenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
 
-    -- Main Panel Container
-    local mainPanel = Instance.new("Frame")
-    mainPanel.Name = "MainPanel"
-    mainPanel.Size = UDim2.new(0, 350, 0, 450)
-    mainPanel.Position = UDim2.new(0.5, -175, 0.5, -225)
-    mainPanel.BackgroundColor3 = Colors.Background
-    mainPanel.BorderSizePixel = 0
-    mainPanel.LayoutOrder = 1
-    mainPanel.Parent = screenGui
+local Logger = {}
 
-    -- Corner Rounding
-    local panelCorner = Instance.new("UICorner")
-    panelCorner.CornerRadius = UDim.new(0, 12)
-    panelCorner.Parent = mainPanel
+function Logger:Print(message, messageType)
+    messageType = messageType or "INFO"
+    local prefix = "[LOW HUB - " .. messageType .. "]"
+    print(prefix .. " " .. message)
+end
 
-    -- Panel Stroke
-    local panelStroke = Instance.new("UIStroke")
-    panelStroke.Color = Colors.Accent
-    panelStroke.Thickness = 2
-    panelStroke.Transparency = 0.5
-    panelStroke.Parent = mainPanel
+function Logger:Success(message)
+    self:Print(message, "SUCCESS")
+end
 
-    -- Header
-    local header = Instance.new("Frame")
-    header.Name = "Header"
-    header.Size = UDim2.new(1, 0, 0, 50)
-    header.BackgroundColor3 = Colors.Secondary
-    header.BorderSizePixel = 0
-    header.Parent = mainPanel
+function Logger:Error(message)
+    self:Print(message, "ERROR")
+end
 
-    local headerCorner = Instance.new("UICorner")
-    headerCorner.CornerRadius = UDim.new(0, 12)
-    headerCorner.Parent = header
+function Logger:Warning(message)
+    self:Print(message, "WARNING")
+end
 
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Name = "Title"
-    titleLabel.Size = UDim2.new(1, -20, 1, 0)
-    titleLabel.Position = UDim2.new(0, 10, 0, 0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.TextColor3 = Colors.Text
-    titleLabel.TextSize = 18
-    titleLabel.Font = Enum.Font.GothamBold
-    titleLabel.Text = "Panel by abel"
-    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    titleLabel.Parent = header
+Logger:Success("Script iniciado em: " .. CurrentGame)
 
-    -- Close Button
-    local closeButton = Instance.new("TextButton")
-    closeButton.Name = "CloseButton"
-    closeButton.Size = UDim2.new(0, 30, 0, 30)
-    closeButton.Position = UDim2.new(1, -40, 0, 10)
-    closeButton.BackgroundColor3 = Colors.Hover
-    closeButton.TextColor3 = Colors.Text
-    closeButton.TextSize = 18
-    closeButton.Font = Enum.Font.GothamBold
-    closeButton.Text = "×"
-    closeButton.BorderSizePixel = 0
-    closeButton.Parent = header
+-- ============================================
+-- MÓDULO: FULLBRIGHT
+-- ============================================
 
-    local closeCorner = Instance.new("UICorner")
-    closeCorner.CornerRadius = UDim.new(0, 6)
-    closeCorner.Parent = closeButton
+local FullBright = {}
 
-    -- Content Frame
-    local contentFrame = Instance.new("Frame")
-    contentFrame.Name = "Content"
-    contentFrame.Size = UDim2.new(1, 0, 1, -50)
-    contentFrame.Position = UDim2.new(0, 0, 0, 50)
-    contentFrame.BackgroundTransparency = 1
-    contentFrame.ClipsDescendants = true
-    contentFrame.Parent = mainPanel
-
-    -- Tab Bar
-    local tabBar = Instance.new("Frame")
-    tabBar.Name = "TabBar"
-    tabBar.Size = UDim2.new(1, 0, 0, 45)
-    tabBar.BackgroundColor3 = Colors.Secondary
-    tabBar.BorderSizePixel = 0
-    tabBar.Parent = contentFrame
-
-    local tabBarLayout = Instance.new("UIListLayout")
-    tabBarLayout.FillDirection = Enum.FillDirection.Horizontal
-    tabBarLayout.Padding = UDim.new(0, 0)
-    tabBarLayout.Parent = tabBar
-
-    -- Tab Container
-    local tabContainer = Instance.new("Frame")
-    tabContainer.Name = "TabContainer"
-    tabContainer.Size = UDim2.new(1, 0, 1, -45)
-    tabContainer.Position = UDim2.new(0, 0, 0, 45)
-    tabContainer.BackgroundTransparency = 1
-    tabContainer.Parent = contentFrame
-
-    -- ============================================
-    -- Tab Creation Function
-    -- ============================================
-    local function createTab(tabName, icon)
-        -- Tab Button
-        local tabButton = Instance.new("TextButton")
-        tabButton.Name = tabName .. "Tab"
-        tabButton.Size = UDim2.new(0, 175, 1, 0)
-        tabButton.BackgroundColor3 = Colors.Secondary
-        tabButton.TextColor3 = Colors.TextDim
-        tabButton.TextSize = 14
-        tabButton.Font = Enum.Font.GothamSemibold
-        tabButton.Text = "  " .. icon .. " " .. tabName
-        tabButton.BorderSizePixel = 0
-        tabButton.AutoButtonColor = false
-        tabButton.Parent = tabBar
-
-        -- Tab Content
-        local tabContent = Instance.new("Frame")
-        tabContent.Name = tabName .. "Content"
-        tabContent.Size = UDim2.new(1, 0, 1, 0)
-        tabContent.BackgroundTransparency = 1
-        tabContent.Visible = (tabName == "Home")
-        tabContent.Parent = tabContainer
-
-        local tabScroll = Instance.new("ScrollingFrame")
-        tabScroll.Name = "Scroll"
-        tabScroll.Size = UDim2.new(1, 0, 1, 0)
-        tabScroll.BackgroundTransparency = 1
-        tabScroll.ScrollBarThickness = 4
-        tabScroll.ScrollBarImageColor3 = Colors.Accent
-        tabScroll.Parent = tabContent
-
-        local tabLayout = Instance.new("UIListLayout")
-        tabLayout.Padding = UDim.new(0, 10)
-        tabLayout.FillDirection = Enum.FillDirection.Vertical
-        tabLayout.SortOrder = Enum.SortOrder.LayoutOrder
-        tabLayout.Parent = tabScroll
-
-        local padding = Instance.new("UIPadding")
-        padding.PaddingTop = UDim.new(0, 15)
-        padding.PaddingBottom = UDim.new(0, 15)
-        padding.PaddingLeft = UDim.new(0, 15)
-        padding.PaddingRight = UDim.new(0, 15)
-        padding.Parent = tabScroll
-
-        -- Tab Selection Handler
-        tabButton.MouseButton1Click:Connect(function()
-            selectedTab = tabName
-            
-            -- Update all tabs visibility
-            for _, child in pairs(tabContainer:GetChildren()) do
-                if child:IsA("Frame") and child.Name ~= "UIListLayout" and child.Name ~= "UIPadding" then
-                    child.Visible = (child.Name == tabName .. "Content")
-                end
-            end
-
-            -- Update tab button colors
-            for _, btn in pairs(tabBar:GetChildren()) do
-                if btn:IsA("TextButton") then
-                    if btn.Name == tabName .. "Tab" then
-                        btn.BackgroundColor3 = Colors.Active
-                        btn.TextColor3 = Colors.Text
-                    else
-                        btn.BackgroundColor3 = Colors.Secondary
-                        btn.TextColor3 = Colors.TextDim
-                    end
-                end
-            end
-        end)
-
-        -- Hover Effects
-        tabButton.MouseEnter:Connect(function()
-            if selectedTab ~= tabName then
-                TweenService:Create(tabButton, TweenInfos.Fast, {BackgroundColor3 = Colors.Hover}):Play()
-            end
-        end)
-
-        tabButton.MouseLeave:Connect(function()
-            if selectedTab ~= tabName then
-                TweenService:Create(tabButton, TweenInfos.Fast, {BackgroundColor3 = Colors.Secondary}):Play()
-            end
-        end)
-
-        return tabContent, tabScroll
-    end
-
-    -- Create Tabs
-    local homeContent, homeScroll = createTab("Home", "🏠")
-    local gameContent, gameScroll = createTab("Game", "🎮")
-
-    -- Set first tab as active
-    tabBar:FindFirstChild("HomeTab").BackgroundColor3 = Colors.Active
-    tabBar:FindFirstChild("HomeTab").TextColor3 = Colors.Text
-
-    -- ============================================
-    -- Toggle Button Creation Function
-    -- ============================================
-    local function createToggle(parent, name, defaultState)
-        local toggleContainer = Instance.new("Frame")
-        toggleContainer.Name = name .. "Toggle"
-        toggleContainer.Size = UDim2.new(1, 0, 0, 50)
-        toggleContainer.BackgroundColor3 = Colors.Hover
-        toggleContainer.BorderSizePixel = 0
-        toggleContainer.LayoutOrder = 1
-        toggleContainer.Parent = parent
-
-        local toggleCorner = Instance.new("UICorner")
-        toggleCorner.CornerRadius = UDim.new(0, 8)
-        toggleCorner.Parent = toggleContainer
-
-        local toggleStroke = Instance.new("UIStroke")
-        toggleStroke.Color = Colors.Accent
-        toggleStroke.Thickness = 1
-        toggleStroke.Transparency = 0.7
-        toggleStroke.Parent = toggleContainer
-
-        local labelText = Instance.new("TextLabel")
-        labelText.Name = "Label"
-        labelText.Size = UDim2.new(1, -70, 1, 0)
-        labelText.Position = UDim2.new(0, 15, 0, 0)
-        labelText.BackgroundTransparency = 1
-        labelText.TextColor3 = Colors.Text
-        labelText.TextSize = 14
-        labelText.Font = Enum.Font.Gotham
-        labelText.Text = name
-        labelText.TextXAlignment = Enum.TextXAlignment.Left
-        labelText.Parent = toggleContainer
-
-        -- Toggle Switch
-        local switchBg = Instance.new("Frame")
-        switchBg.Name = "SwitchBg"
-        switchBg.Size = UDim2.new(0, 45, 0, 24)
-        switchBg.Position = UDim2.new(1, -60, 0.5, -12)
-        switchBg.BackgroundColor3 = defaultState and Colors.Active or Colors.Secondary
-        switchBg.BorderSizePixel = 0
-        switchBg.Parent = toggleContainer
-
-        local switchCorner = Instance.new("UICorner")
-        switchCorner.CornerRadius = UDim.new(0, 12)
-        switchCorner.Parent = switchBg
-
-        local switchCircle = Instance.new("Frame")
-        switchCircle.Name = "Circle"
-        switchCircle.Size = UDim2.new(0, 20, 0, 20)
-        switchCircle.Position = UDim2.new(0, defaultState and 23 or 2, 0.5, -10)
-        switchCircle.BackgroundColor3 = Colors.Text
-        switchCircle.BorderSizePixel = 0
-        switchCircle.Parent = switchBg
-
-        local circleCorner = Instance.new("UICorner")
-        circleCorner.CornerRadius = UDim.new(0, 10)
-        circleCorner.Parent = switchCircle
-
-        -- Feedback Label
-        local feedbackLabel = Instance.new("TextLabel")
-        feedbackLabel.Name = "Feedback"
-        feedbackLabel.Size = UDim2.new(0, 20, 0, 20)
-        feedbackLabel.Position = UDim2.new(0.5, -10, 0.5, -10)
-        feedbackLabel.BackgroundTransparency = 1
-        feedbackLabel.TextColor3 = Colors.Success
-        feedbackLabel.TextSize = 14
-        feedbackLabel.Font = Enum.Font.GothamBold
-        feedbackLabel.Text = "✓"
-        feedbackLabel.Visible = false
-        feedbackLabel.Parent = switchCircle
-
-        local toggleButton = Instance.new("TextButton")
-        toggleButton.Name = "ToggleButton"
-        toggleButton.Size = UDim2.new(1, 0, 1, 0)
-        toggleButton.BackgroundTransparency = 1
-        toggleButton.Text = ""
-        toggleButton.Parent = toggleContainer
-
-        -- Toggle Logic
-        local function toggleFeature()
-            toggleStates[name] = not toggleStates[name]
-            
-            TweenService:Create(switchBg, TweenInfos.Fast, {
-                BackgroundColor3 = toggleStates[name] and Colors.Active or Colors.Secondary
-            }):Play()
-
-            TweenService:Create(switchCircle, TweenInfos.Fast, {
-                Position = UDim2.new(0, toggleStates[name] and 23 or 2, 0.5, -10)
-            }):Play()
-
-            -- Show feedback
-            feedbackLabel.Visible = true
-            feedbackLabel.TextTransparency = 0
-            TweenService:Create(feedbackLabel, TweenInfos.Pulse, {TextTransparency = 1}):Play()
-
-            -- Apply feature logic here
-            if name == "ESP" then
-                onESPToggle(toggleStates[name])
-            elseif name == "SilentAim" then
-                onSilentAimToggle(toggleStates[name])
-            elseif name == "Aimbot" then
-                onAimbotToggle(toggleStates[name])
-            end
+function FullBright:Enable()
+    if Config.Features.FullBright then return end
+    
+    -- Salvar configurações originais
+    FullBright.OriginalClockTime = Lighting.ClockTime
+    FullBright.OriginalAmbient = Lighting.Ambient
+    FullBright.OriginalOutdoorAmbient = Lighting.OutdoorAmbient
+    
+    -- Aplicar fullbright
+    Lighting.ClockTime = 12
+    Lighting.Ambient = Color3.fromRGB(255, 255, 255)
+    Lighting.OutdoorAmbient = Color3.fromRGB(255, 255, 255)
+    
+    -- Remover sombras
+    for _, obj in pairs(Lighting:GetChildren()) do
+        if obj:IsA("Shadow") then
+            obj:Destroy()
         end
-
-        toggleButton.MouseButton1Click:Connect(toggleFeature)
-
-        -- Hover Effects
-        toggleContainer.MouseEnter:Connect(function()
-            TweenService:Create(toggleContainer, TweenInfos.Fast, {BackgroundColor3 = Color3.fromRGB(45, 45, 45)}):Play()
-            TweenService:Create(toggleStroke, TweenInfos.Fast, {Transparency = 0.3}):Play()
-        end)
-
-        toggleContainer.MouseLeave:Connect(function()
-            TweenService:Create(toggleContainer, TweenInfos.Fast, {BackgroundColor3 = Colors.Hover}):Play()
-            TweenService:Create(toggleStroke, TweenInfos.Fast, {Transparency = 0.7}):Play()
-        end)
-
-        return switchBg, switchCircle
     end
+    
+    Config.Features.FullBright = true
+    Logger:Success("FullBright ativado!")
+end
 
-    -- ============================================
-    -- HOME TAB CONTENT
-    -- ============================================
-    local welcomeLabel = Instance.new("TextLabel")
-    welcomeLabel.Name = "Welcome"
-    welcomeLabel.Size = UDim2.new(1, 0, 0, 60)
-    welcomeLabel.BackgroundColor3 = Colors.Hover
-    welcomeLabel.TextColor3 = Colors.Text
-    welcomeLabel.TextSize = 16
-    welcomeLabel.Font = Enum.Font.GothamBold
-    welcomeLabel.Text = "Welcome to\npainel created by abel"
-    welcomeLabel.TextWrapped = true
-    welcomeLabel.BorderSizePixel = 0
-    welcomeLabel.LayoutOrder = 1
-    welcomeLabel.Parent = homeScroll
+function FullBright:Disable()
+    if not Config.Features.FullBright then return end
+    
+    -- Restaurar valores originais
+    Lighting.ClockTime = FullBright.OriginalClockTime or 14.5
+    Lighting.Ambient = FullBright.OriginalAmbient or Color3.fromRGB(200, 200, 200)
+    Lighting.OutdoorAmbient = FullBright.OriginalOutdoorAmbient or Color3.fromRGB(200, 200, 200)
+    
+    Config.Features.FullBright = false
+    Logger:Success("FullBright desativado!")
+end
 
-    local welcomeCorner = Instance.new("UICorner")
-    welcomeCorner.CornerRadius = UDim.new(0, 8)
-    welcomeCorner.Parent = welcomeLabel
-
-    local keybindLabel = Instance.new("TextLabel")
-    keybindLabel.Name = "Keybind"
-    keybindLabel.Size = UDim2.new(1, 0, 0, 70)
-    keybindLabel.BackgroundColor3 = Colors.Secondary
-    keybindLabel.TextColor3 = Colors.TextDim
-    keybindLabel.TextSize = 13
-    keybindLabel.Font = Enum.Font.Gotham
-    keybindLabel.Text = "📌 Keybind Information\n\nPress 'B' (case-insensitive) to toggle this panel on and off."
-    keybindLabel.TextWrapped = true
-    keybindLabel.BorderSizePixel = 0
-    keybindLabel.LayoutOrder = 2
-    keybindLabel.Parent = homeScroll
-
-    local keybindCorner = Instance.new("UICorner")
-    keybindCorner.CornerRadius = UDim.new(0, 8)
-    keybindCorner.Parent = keybindLabel
-
-    -- ============================================
-    -- GAME TAB CONTENT
-    -- ============================================
-    createToggle(gameScroll, "ESP", false)
-    createToggle(gameScroll, "SilentAim", false)
-    createToggle(gameScroll, "Aimbot", false)
-
-    -- ============================================
-    -- ANIMATION FUNCTIONS
-    -- ============================================
-    local function showPanel()
-        panelVisible = true
-        mainPanel.Visible = true
-        mainPanel.Size = UDim2.new(0, 350, 0, 450)
-        
-        TweenService:Create(mainPanel, TweenInfos.Smooth, {
-            Position = UDim2.new(0.5, -175, 0.5, -225)
-        }):Play()
+function FullBright:Toggle()
+    if Config.Features.FullBright then
+        self:Disable()
+    else
+        self:Enable()
     end
+end
 
-    local function hidePanel()
-        panelVisible = false
-        TweenService:Create(mainPanel, TweenInfos.Smooth, {
-            Position = UDim2.new(0.5, -175, -0.5, -225)
-        }):Play()
-        
-        game:GetService("Debris"):AddItem(mainPanel, 0.5)
+-- ============================================
+-- MÓDULO: NO BLUR
+-- ============================================
+
+local NoBlur = {}
+
+function NoBlur:Enable()
+    if Config.Features.NoBlur then return end
+    
+    -- Remover motion blur da câmera
+    local Camera = workspace.CurrentCamera
+    
+    if Camera:FindFirstChild("MotionBlur") then
+        Camera.MotionBlur:Destroy()
     end
-
-    -- Close Button Logic
-    closeButton.MouseButton1Click:Connect(hidePanel)
-
-    -- ============================================
-    -- KEYBIND HANDLING
-    -- ============================================
-    UserInputService.InputBegan:Connect(function(input, gameProcessed)
-        if gameProcessed then return end
-        
-        if input.KeyCode == Enum.KeyCode.B then
-            if panelVisible then
-                hidePanel()
-            else
-                showPanel()
+    
+    -- Adicionar observador para novos efeitos
+    NoBlur.Connection = Lighting.ChildAdded:Connect(function(child)
+        if child:IsA("PostProcessEffect") then
+            if child.Name == "MotionBlur" or child:FindFirstChild("Blur") then
+                child:Destroy()
             end
         end
     end)
-
-    -- Initial panel visibility
-    mainPanel.Visible = true
-    showPanel()
-
-    return screenGui
+    
+    Config.Features.NoBlur = true
+    Logger:Success("No Blur ativado!")
 end
 
--- ============================================
--- FEATURE IMPLEMENTATIONS
--- ============================================
-
-local function onESPToggle(enabled)
-    if enabled then
-        print("[Panel] ESP Enabled")
-        -- Add your ESP implementation here
-    else
-        print("[Panel] ESP Disabled")
+function NoBlur:Disable()
+    if not Config.Features.NoBlur then return end
+    
+    if NoBlur.Connection then
+        NoBlur.Connection:Disconnect()
     end
+    
+    Config.Features.NoBlur = false
+    Logger:Success("No Blur desativado!")
 end
 
-local function onSilentAimToggle(enabled)
-    if enabled then
-        print("[Panel] Silent Aim Enabled")
-        -- Add your Silent Aim implementation here
+function NoBlur:Toggle()
+    if Config.Features.NoBlur then
+        self:Disable()
     else
-        print("[Panel] Silent Aim Disabled")
-    end
-end
-
-local function onAimbotToggle(enabled)
-    if enabled then
-        print("[Panel] Aimbot Enabled")
-        -- Add your Aimbot implementation here
-    else
-        print("[Panel] Aimbot Disabled")
+        self:Enable()
     end
 end
 
 -- ============================================
--- SCRIPT EXECUTION
+-- MÓDULO: POTATO MODE (Otimização FPS)
 -- ============================================
-createUI()
-print("[Panel] Minimal Panel loaded successfully! Press 'B' to toggle.")
+
+local PotatoMode = {}
+
+function PotatoMode:Enable()
+    if Config.Features.PotatoMode then return end
+    
+    -- Reduzir qualidade de texturas
+    for _, part in pairs(workspace:FindPartBoundsInRadius(Player.Character.PrimaryPart.Position, 500)) do
+        if part:IsA("Part") or part:IsA("MeshPart") then
+            part.Material = Enum.Material.Plastic
+            if part:FindFirstChild("Texture") then
+                part.Texture:Destroy()
+            end
+        end
+    end
+    
+    -- Desabilitar sombras
+    Lighting.GlobalShadows = false
+    
+    -- Reduzir render distance
+    for _, obj in pairs(Lighting:GetChildren()) do
+        if obj:IsA("Atmosphere") then
+            obj.Density = 0.1
+        end
+    end
+    
+    -- Desabilitar efeitos de partículas
+    for _, emitter in pairs(workspace:FindPartBoundsInRadius(Player.Character.PrimaryPart.Position, 500)) do
+        for _, child in pairs(emitter:GetChildren()) do
+            if child:IsA("ParticleEmitter") then
+                child.Enabled = false
+            end
+        end
+    end
+    
+    Config.Features.PotatoMode = true
+    Logger:Success("Potato Mode (FPS Boost) ativado!")
+end
+
+function PotatoMode:Disable()
+    if not Config.Features.PotatoMode then return end
+    
+    Lighting.GlobalShadows = true
+    
+    for _, emitter in pairs(workspace:FindPartBoundsInRadius(Player.Character.PrimaryPart.Position, 500)) do
+        for _, child in pairs(emitter:GetChildren()) do
+            if child:IsA("ParticleEmitter") then
+                child.Enabled = true
+            end
+        end
+    end
+    
+    Config.Features.PotatoMode = false
+    Logger:Success("Potato Mode desativado!")
+end
+
+function PotatoMode:Toggle()
+    if Config.Features.PotatoMode then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+
+-- ============================================
+-- MÓDULO: BETTER WATER
+-- ============================================
+
+local BetterWater = {}
+
+function BetterWater:Enable()
+    if Config.Features.BetterWater then return end
+    
+    -- Encontrar terreno de água
+    local Terrain = workspace.Terrain
+    
+    -- Melhorar reflexo da água (simulado via câmera)
+    local Camera = workspace.CurrentCamera
+    
+    -- Aumentar brilho de reflexos
+    Lighting.Ambient = Lighting.Ambient + Color3.fromRGB(10, 10, 10)
+    
+    Config.Features.BetterWater = true
+    Logger:Success("Better Water ativado!")
+end
+
+function BetterWater:Disable()
+    if not Config.Features.BetterWater then return end
+    
+    Config.Features.BetterWater = false
+    Logger:Success("Better Water desativado!")
+end
+
+function BetterWater:Toggle()
+    if Config.Features.BetterWater then
+        self:Disable()
+    else
+        self:Enable()
+    end
+end
+
+-- ============================================
+-- MÓDULO: SERVIDOR
+-- ============================================
+
+local ServerModule = {}
+
+function ServerModule:GetPlayers()
+    local playerList = {}
+    for _, player in pairs(Players:GetPlayers()) do
+        table.insert(playerList, {
+            Name = player.Name,
+            UserId = player.UserId,
+            Character = player.Character ~= nil
+        })
+    end
+    return playerList
+end
+
+function ServerModule:GetServerInfo()
+    return {
+        PlaceId = game.PlaceId,
+        PlaceName = game.Name,
+        PlayerCount = #Players:GetPlayers(),
+        MaxPlayers = game:FindFirstChild("MaxPlayers") and game.MaxPlayers or "Desconhecido",
+        ServerId = game.JobId
+    }
+end
+
+function ServerModule:Rejoin()
+    local PlaceId = game.PlaceId
+    TeleportService:Teleport(PlaceId, Player)
+    Logger:Success("Rejoin iniciado...")
+end
+
+function ServerModule:GetServerList()
+    -- Simulação - em um cenário real, usaria APIs do Roblox
+    local info = self:GetServerInfo()
+    return {
+        {
+            Name = "Servidor Atual",
+            Players = info.PlayerCount,
+            JobId = info.ServerId,
+            IsCurrent = true
+        }
+    }
+end
+
+-- ============================================
+-- INTERFACE GUI
+-- ============================================
+
+local GuiManager = {}
+GuiManager.MainGui = nil
+GuiManager.IsOpen = false
+
+function GuiManager:CreateMainPanel()
+    -- Criar ScreenGui
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "LowHubGui"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.DisplayOrder = 999
+    ScreenGui.Parent = UserGui
+    
+    -- Painel Principal
+    local MainPanel = Instance.new("Frame")
+    MainPanel.Name = "MainPanel"
+    MainPanel.Size = UDim2.new(0, 500, 0, 600)
+    MainPanel.Position = UDim2.new(0.5, -250, 0.5, -300)
+    MainPanel.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    MainPanel.BorderSizePixel = 0
+    MainPanel.Parent = ScreenGui
+    
+    -- Adicionar corner radius (usando UICorner)
+    local Corner = Instance.new("UICorner")
+    Corner.CornerRadius = UDim.new(0, 10)
+    Corner.Parent = MainPanel
+    
+    -- Barra de Título
+    local TitleBar = Instance.new("Frame")
+    TitleBar.Name = "TitleBar"
+    TitleBar.Size = UDim2.new(1, 0, 0, 50)
+    TitleBar.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    TitleBar.BorderSizePixel = 0
+    TitleBar.Parent = MainPanel
+    
+    local TitleLabel = Instance.new("TextLabel")
+    TitleLabel.Name = "Title"
+    TitleLabel.Size = UDim2.new(1, -60, 1, 0)
+    TitleLabel.BackgroundTransparency = 1
+    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TitleLabel.TextSize = 18
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.Text = "🎮 LOW HUB v" .. Config.Version
+    TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    TitleLabel.Parent = TitleBar
+    
+    -- Botão Fechar
+    local CloseButton = Instance.new("TextButton")
+    CloseButton.Name = "CloseButton"
+    CloseButton.Size = UDim2.new(0, 50, 0, 50)
+    CloseButton.Position = UDim2.new(1, -50, 0, 0)
+    CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextSize = 16
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.Text = "✕"
+    CloseButton.BorderSizePixel = 0
+    CloseButton.Parent = TitleBar
+    
+    CloseButton.MouseButton1Click:Connect(function()
+        GuiManager:Toggle()
+    end)
+    
+    -- Container de Abas
+    local TabContainer = Instance.new("Frame")
+    TabContainer.Name = "TabContainer"
+    TabContainer.Size = UDim2.new(0, 120, 1, -50)
+    TabContainer.Position = UDim2.new(0, 0, 0, 50)
+    TabContainer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    TabContainer.BorderSizePixel = 0
+    TabContainer.Parent = MainPanel
+    
+    local TabList = Instance.new("UIListLayout")
+    TabList.SortOrder = Enum.SortOrder.LayoutOrder
+    TabList.Padding = UDim.new(0, 5)
+    TabList.Parent = TabContainer
+    
+    -- Container de Conteúdo
+    local ContentContainer = Instance.new("Frame")
+    ContentContainer.Name = "ContentContainer"
+    ContentContainer.Size = UDim2.new(1, -120, 1, -50)
+    ContentContainer.Position = UDim2.new(0, 120, 0, 50)
+    ContentContainer.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    ContentContainer.BorderSizePixel = 0
+    ContentContainer.Parent = MainPanel
+    
+    -- Rodapé com Discord Link
+    local Footer = Instance.new("Frame")
+    Footer.Name = "Footer"
+    Footer.Size = UDim2.new(1, 0, 0, 40)
+    Footer.Position = UDim2.new(0, 0, 1, -40)
+    Footer.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
+    Footer.BorderSizePixel = 0
+    Footer.Parent = MainPanel
+    
+    local DiscordLabel = Instance.new("TextLabel")
+    DiscordLabel.Name = "DiscordLabel"
+    DiscordLabel.Size = UDim2.new(1, 0, 1, 0)
+    DiscordLabel.BackgroundTransparency = 1
+    DiscordLabel.TextColor3 = Color3.fromRGB(100, 150, 255)
+    DiscordLabel.TextSize = 12
+    DiscordLabel.Font = Enum.Font.Gotham
+    DiscordLabel.Text = "📱 " .. Config.DiscordLink .. " | Jogo: " .. CurrentGame
+    DiscordLabel.Parent = Footer
+    
+    self.MainGui = {
+        ScreenGui = ScreenGui,
+        MainPanel = MainPanel,
+        TabContainer = TabContainer,
+        ContentContainer = ContentContainer,
+        Tabs = {}
+    }
+    
+    return ScreenGui
+end
+
+function GuiManager:CreateTab(tabName, tabIcon)
+    local TabButton = Instance.new("TextButton")
+    TabButton.Name = tabName
+    TabButton.Size = UDim2.new(1, 0, 0, 40)
+    TabButton.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    TabButton.TextColor3 = Color3.fromRGB(200, 200, 200)
+    TabButton.TextSize = 12
+    TabButton.Font = Enum.Font.GothamBold
+    TabButton.Text = tabIcon .. " " .. tabName
+    TabButton.BorderSizePixel = 0
+    TabButton.Parent = self.MainGui.TabContainer
+    
+    -- Content Frame
+    local ContentFrame = Instance.new("Frame")
+    ContentFrame.Name = tabName .. "Content"
+    ContentFrame.Size = UDim2.new(1, 0, 1, 0)
+    ContentFrame.BackgroundTransparency = 1
+    ContentFrame.Visible = false
+    ContentFrame.Parent = self.MainGui.ContentContainer
+    
+    local ContentList = Instance.new("UIListLayout")
+    ContentList.SortOrder = Enum.SortOrder.LayoutOrder
+    ContentList.Padding = UDim.new(0, 10)
+    ContentList.Parent = ContentFrame
+    
+    local Padding = Instance.new("UIPadding")
+    Padding.PaddingLeft = UDim.new(0, 10)
+    Padding.PaddingTop = UDim.new(0, 10)
+    Padding.PaddingRight = UDim.new(0, 10)
+    Padding.Parent = ContentFrame
+    
+    TabButton.MouseButton1Click:Connect(function()
+        -- Desativar todos os abas
+        for _, content in pairs(self.MainGui.ContentContainer:GetChildren()) do
+            if content:IsA("Frame") and content ~= ContentFrame then
+                content.Visible = false
+            end
+        end
+        
+        -- Desativar botões
+        for _, btn in pairs(self.MainGui.TabContainer:GetChildren()) do
+            if btn:IsA("TextButton") then
+                btn.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+            end
+        end
+        
+        -- Ativar aba atual
+        ContentFrame.Visible = true
+        TabButton.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    end)
+    
+    self.MainGui.Tabs[tabName] = {
+        Button = TabButton,
+        Content = ContentFrame
+    }
+    
+    return ContentFrame
+end
+
+function GuiManager:AddToggle(parentFrame, featureName, featureIcon, onToggle)
+    local ToggleFrame = Instance.new("Frame")
+    ToggleFrame.Name = featureName
+    ToggleFrame.Size = UDim2.new(1, 0, 0, 40)
+    ToggleFrame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    ToggleFrame.BorderSizePixel = 0
+    ToggleFrame.Parent = parentFrame
+    
+    local Label = Instance.new("TextLabel")
+    Label.Name = "Label"
+    Label.Size = UDim2.new(1, -50, 1, 0)
+    Label.BackgroundTransparency = 1
+    Label.TextColor3 = Color3.fromRGB(200, 200, 200)
+    Label.TextSize = 14
+    Label.Font = Enum.Font.Gotham
+    Label.Text = featureIcon .. " " .. featureName
+    Label.TextXAlignment = Enum.TextXAlignment.Left
+    Label.Parent = ToggleFrame
+    
+    local ToggleButton = Instance.new("TextButton")
+    ToggleButton.Name = "Toggle"
+    ToggleButton.Size = UDim2.new(0, 40, 0, 25)
+    ToggleButton.Position = UDim2.new(1, -45, 0.5, -12)
+    ToggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+    ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ToggleButton.TextSize = 12
+    ToggleButton.Font = Enum.Font.GothamBold
+    ToggleButton.Text = "OFF"
+    ToggleButton.BorderSizePixel = 0
+    ToggleButton.Parent = ToggleFrame
+    
+    local isEnabled = false
+    
+    ToggleButton.MouseButton1Click:Connect(function()
+        isEnabled = not isEnabled
+        
+        if isEnabled then
+            ToggleButton.BackgroundColor3 = Color3.fromRGB(100, 200, 100)
+            ToggleButton.Text = "ON"
+        else
+            ToggleButton.BackgroundColor3 = Color3.fromRGB(100, 100, 100)
+            ToggleButton.Text = "OFF"
+        end
+        
+        onToggle(isEnabled)
+    end)
+    
+    return {
+        Frame = ToggleFrame,
+        Button = ToggleButton,
+        IsEnabled = isEnabled
+    }
+end
+
+function GuiManager:AddButton(parentFrame, buttonText, buttonIcon, onClick)
+    local Button = Instance.new("TextButton")
+    Button.Name = buttonText
+    Button.Size = UDim2.new(1, 0, 0, 40)
+    Button.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextSize = 14
+    Button.Font = Enum.Font.GothamBold
+    Button.Text = buttonIcon .. " " .. buttonText
+    Button.BorderSizePixel = 0
+    Button.Parent = parentFrame
+    
+    Button.MouseButton1Click:Connect(function()
+        Button.BackgroundColor3 = Color3.fromRGB(80, 130, 200)
+        wait(0.1)
+        Button.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+        onClick()
+    end)
+    
+    return Button
+end
+
+function GuiManager:BuildInterface()
+    self:CreateMainPanel()
+    
+    -- ============ ABA 1: GRÁFICOS ============
+    local GraphicsTab = self:CreateTab("Graphics", "🎨")
+    
+    self:AddToggle(GraphicsTab, "FullBright", "☀️", function(state)
+        if state then
+            FullBright:Enable()
+        else
+            FullBright:Disable()
+        end
+    end)
+    
+    self:AddToggle(GraphicsTab, "No Blur", "✨", function(state)
+        if state then
+            NoBlur:Enable()
+        else
+            NoBlur:Disable()
+        end
+    end)
+    
+    self:AddToggle(GraphicsTab, "Better Water", "💧", function(state)
+        if state then
+            BetterWater:Enable()
+        else
+            BetterWater:Disable()
+        end
+    end)
+    
+    self:AddToggle(GraphicsTab, "Potato Mode 🥔", "⚡", function(state)
+        if state then
+            PotatoMode:Enable()
+        else
+            PotatoMode:Disable()
+        end
+    end)
+    
+    -- ============ ABA 2: SERVIDOR ============
+    local ServerTab = self:CreateTab("Server", "🖥️")
+    
+    self:AddButton(ServerTab, "Rejoin", "🔄", function()
+        Logger:Success("Reentrando no servidor...")
+        ServerModule:Rejoin()
+    end)
+    
+    self:AddButton(ServerTab, "Server Info", "ℹ️", function()
+        local info = ServerModule:GetServerInfo()
+        Logger:Success("Jogo: " .. info.PlaceName)
+        Logger:Success("Jogadores: " .. info.PlayerCount)
+        Logger:Success("ID do Servidor: " .. info.ServerId)
+    end)
+    
+    self:AddButton(ServerTab, "List Players", "👥", function()
+        local players = ServerModule:GetPlayers()
+        Logger:Success("Jogadores conectados:")
+        for _, player in pairs(players) do
+            print("  - " .. player.Name .. " (ID: " .. player.UserId .. ")")
+        end
+    end)
+    
+    -- ============ ABA 3: SOBRE ============
+    local AboutTab = self:CreateTab("About", "ℹ️")
+    
+    local AboutText = Instance.new("TextLabel")
+    AboutText.Size = UDim2.new(1, 0, 1, 0)
+    AboutText.BackgroundTransparency = 1
+    AboutText.TextColor3 = Color3.fromRGB(200, 200, 200)
+    AboutText.TextSize = 12
+    AboutText.Font = Enum.Font.Gotham
+    AboutText.Text = [[
+LOW HUB v1.0.0
+
+✅ FEATURES LEGÍTIMAS:
+• Fullbright (Iluminação)
+• No Blur (Sem desfoque)
+• Better Water (Água melhorada)
+• Potato Mode (Otimizar FPS)
+• Server Info (Informações)
+• Rejoin (Reentrar)
+
+📱 Discord: discord.gg/lowhub
+
+⚠️ AVISO:
+Este script é 100% legítimo
+e segue os TOS do Roblox.
+Não contém exploits!
+
+Desenvolvido por: abelcandy
+    ]]
+    AboutText.TextWrapped = true
+    AboutText.TextXAlignment = Enum.TextXAlignment.Left
+    AboutText.TextYAlignment = Enum.TextYAlignment.Top
+    AboutText.Parent = AboutTab
+    
+    -- Ativar primeira aba
+    local firstTab = self.MainGui.Tabs["Graphics"]
+    if firstTab then
+        firstTab.Content.Visible = true
+        firstTab.Button.BackgroundColor3 = Color3.fromRGB(100, 150, 255)
+    end
+    
+    Logger:Success("Interface GUI criada com sucesso!")
+end
+
+function GuiManager:Toggle()
+    if self.MainGui then
+        self.IsOpen = not self.IsOpen
+        self.MainGui.ScreenGui.Enabled = self.IsOpen
+        
+        if self.IsOpen then
+            Logger:Success("Painel aberto!")
+        else
+            Logger:Success("Painel fechado!")
+        end
+    end
+end
+
+-- ============================================
+-- SISTEMA DE HOTKEYS
+-- ============================================
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    
+    if input.KeyCode == Config.ToggleKey then
+        GuiManager:Toggle()
+    end
+end)
+
+-- ============================================
+-- INICIALIZAÇÃO
+-- ============================================
+
+local function Initialize()
+    Logger:Success("═══════════════════════════════════════")
+    Logger:Success("   LOW HUB - PAINEL DE ENHANCEMENTS")
+    Logger:Success("═══════════════════════════════════════")
+    Logger:Success("Versão: " .. Config.Version)
+    Logger:Success("Jogo detectado: " .. CurrentGame)
+    Logger:Success("Pressione INSERT para abrir o painel")
+    Logger:Success("Discord: " .. Config.DiscordLink)
+    Logger:Success("═══════════════════════════════════════")
+    
+    -- Criar interface
+    GuiManager:BuildInterface()
+    GuiManager.MainGui.ScreenGui.Enabled = false -- Começa fechado
+    
+    Logger:Success("Script carregado com sucesso! ✅")
+end
+
+-- Aguardar renderização
+wait(0.5)
+Initialize()
+
+-- ============================================
+-- LIMPEZA AO SAIR
+-- ============================================
+
+Players.PlayerRemoving:Connect(function(player)
+    if player == Player then
+        if GuiManager.MainGui then
+            GuiManager.MainGui.ScreenGui:Destroy()
+        end
+        Logger:Success("Script finalizado")
+    end
+end)
